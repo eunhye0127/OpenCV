@@ -7,11 +7,23 @@ import time
 mp_hands = mp.solutions.hands
 hands = mp_hands.Hands(static_image_mode=False, max_num_hands=1)
 
+# 얼굴 인식을 위한 분류기 로드
+face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+
 # 카메라 연결
 cap = cv2.VideoCapture(0)
 
 # 동영상 파일 경로
-video_path = "C:/Users/User/Downloads/video.mp4"
+video_path = "C:\\Users\\User\\Downloads\\aa.mp4"
+
+# 이미지 불러오기
+image_path = 'C:\\Users\\User\\Downloads\\c3251ca67fdc16fb7884451e63e7a5c8-removebg-preview.png'
+overlay_image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
+
+# 이미지 크기 조정
+new_width = 300  # 원하는 너비
+new_height = 300  # 원하는 높이
+overlay_image = cv2.resize(overlay_image, (new_width, new_height))
 
 # 동영상 재생 여부를 나타내는 변수
 video_playing = False
@@ -43,12 +55,6 @@ while cap.isOpened():
                     # 동영상 재생 시작
                     video = cv2.VideoCapture(video_path)
                     video_playing = True
-                    start_time = time.time()  # 동영상 재생 시작 시간 기록
-                else:
-                    # 현재 시간과 동영상 재생 시작 시간의 차이를 계산하여 일정 시간이 지나면 동영상 종료
-                    if time.time() - start_time > 5:  # 예: 5초 후에 동영상 종료
-                        video_playing = False
-                        video.release()  # 동영상 파일 해제
             else:
                 # 주먹을 쥐지 않은 상태이므로 동영상 재생 중이라면 종료
                 if video_playing:
@@ -70,6 +76,32 @@ while cap.isOpened():
             video_playing = False
             video.release()  # 동영상 파일 해제
     else:
+        # 그레이스케일 변환
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        
+        # 얼굴 감지
+        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+        
+        # 얼굴 주변에 이미지 오버레이
+        for (x, y, w, h) in faces:
+            # 얼굴 주변에 이미지 크기 조정
+            resized_overlay = cv2.resize(overlay_image, (w*2, h*2))
+            
+            # 오버레이 이미지가 프레임을 벗어나지 않도록 처리
+            y0, y1 = max(0, y - h//2), min(frame.shape[0], y + h + h//2)
+            x0, x1 = max(0, x - w//2), min(frame.shape[1], x + w + w//2)
+            
+            # 프레임 영역 계산
+            face_frame = frame[y0:y1, x0:x1]
+            
+            # 오버레이 이미지 조정
+            overlay_resized = cv2.resize(resized_overlay, (x1-x0, y1-y0))
+            
+            # 이미지 오버레이
+            for c in range(0, 3):
+                alpha_mask = overlay_resized[:, :, 3] / 255.0
+                frame[y0:y1, x0:x1, c] = (1.0 - alpha_mask) * frame[y0:y1, x0:x1, c] + alpha_mask * overlay_resized[:, :, c]
+
         cv2.imshow('Hand Gesture Video', frame)
 
     # 종료 키 설정
